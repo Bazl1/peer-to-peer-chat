@@ -19,6 +19,14 @@ const HomePage = () => {
 
     const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
 
+    const sendStreams = () => {
+        if (myStream && PeerService && PeerService.peer) {
+            for (const track of myStream.getTracks()) {
+                PeerService.peer.addTrack(track, myStream);
+            }
+        }
+    };
+
     const userCall = async (e: any) => {
         e.preventDefault();
         await connection?.invoke("Call", userId, name);
@@ -44,6 +52,7 @@ const HomePage = () => {
     };
 
     const handleCallAnswer = async (FromId: string, value: boolean) => {
+        console.log("handleCallAnswer start");
         setCaller(false);
         setCallerSignal(false);
         setUserId("");
@@ -52,12 +61,44 @@ const HomePage = () => {
             const offer = await PeerService.getOffer();
             await connection?.invoke("SendOffer", FromId, offer);
             setCallAccepted(true);
+            console.log("SendOffer end");
         }
+        console.log("handleCallAnswer end");
     };
 
     const handleOfferReceived = async (FromId: string, offer: RTCSessionDescriptionInit) => {
+        console.log("handleOfferReceived start");
         const ans = await PeerService.getAnswer(offer);
         await connection?.invoke("SendAnswer", FromId, ans);
+        console.log("handleOfferReceived end");
+    };
+
+    const handleAnswerReceived = async (FromId: string, ans: RTCSessionDescriptionInit) => {
+        console.log("handleAnswerReceived start");
+        PeerService.setLocalDescription(ans);
+        sendStreams();
+        console.log("handleAnswerReceived end");
+    };
+
+    const handleNegoNeeded = async () => {
+        console.log("handleNegoNeeded start");
+        const offer = await PeerService.getOffer();
+        await connection?.invoke("SendOfferBack", fromId, offer);
+        console.log("handleNegoNeeded end");
+    };
+
+    const handleOfferReceivedBack = async (FromId: string, offer: RTCSessionDescriptionInit) => {
+        console.log("handleOfferReceivedBack start");
+        const ans = await PeerService.getAnswer(offer);
+        await connection?.invoke("SendAnswerBack", FromId, ans);
+        console.log("handleOfferReceivedBack end");
+    };
+
+    const handleAnswerReceivedBack = async (FromId: string, ans: RTCSessionDescriptionInit) => {
+        console.log("handleAnswerReceivedBack start");
+        PeerService.setLocalDescription(ans);
+        sendStreams();
+        console.log("handleAnswerReceivedBack end");
     };
 
     useEffect(() => {
@@ -71,6 +112,10 @@ const HomePage = () => {
                 newConnection.on("Call:Me", handleInfoCall);
                 newConnection.on("Call:Answer", handleCallAnswer);
                 newConnection.on("Offer:Received", handleOfferReceived);
+                newConnection.on("Answer:Received", handleAnswerReceived);
+
+                newConnection.on("OfferBack:Received", handleOfferReceivedBack);
+                newConnection.on("AnswerBack:Received", handleAnswerReceivedBack);
             } catch (error) {
                 console.error("Error starting SignalR connection:", error);
             }
@@ -86,9 +131,26 @@ const HomePage = () => {
     }, []);
 
     useEffect(() => {
+        PeerService &&
+            PeerService.peer &&
+            PeerService.peer.addEventListener("track", async (ev) => {
+                const remoteStream = ev.streams;
+                console.log("GOT TRACKS!!");
+                setRemoteStream(remoteStream[0]);
+            });
+    }, []);
+
+    useEffect(() => {
         navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
             setMyStream(stream);
         });
+
+        PeerService && PeerService.peer && PeerService.peer.addEventListener("negotiationneeded", handleNegoNeeded);
+        return () => {
+            PeerService &&
+                PeerService.peer &&
+                PeerService.peer.removeEventListener("negotiationneeded", handleNegoNeeded);
+        };
     }, []);
 
     return (
