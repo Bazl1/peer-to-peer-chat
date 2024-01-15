@@ -77,9 +77,9 @@ const HomePage = () => {
                             <div className={s.hero_home__yourid}>
                                 Your ID: <span>ID</span>
                             </div>
-                            {caller ? (
+                            {!caller ? (
                                 <div className={s.hero_home__caller_box}>
-                                    <div className={s.hero_home__caller}>You're calling</div>
+                                    <div className={s.hero_home__caller}>You're calling...</div>
                                     <button className={s.hero_home__btn}>Reset call</button>
                                 </div>
                             ) : (
