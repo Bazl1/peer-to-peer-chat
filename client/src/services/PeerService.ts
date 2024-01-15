@@ -1,4 +1,4 @@
-export class PeerService {
+class PeerService {
     public peer: RTCPeerConnection | undefined;
 
     constructor() {
