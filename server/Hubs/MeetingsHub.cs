@@ -15,6 +15,8 @@ public class MeetingsHub(
     private const string CALL_ANSWER = "Call:Answer";
     private const string OFFER_RECEIVED = "Offer:Received";
     private const string ANSWER_RECEIVED = "Answer:Received";
+    private const string OFFER_BACK_RECEIVED = "OfferBack:Received";
+    private const string ANSWER_BACK_RECEIVED = "AnswerBack:Received";
 
     public async Task Call(string to, string userName)
     {
@@ -48,5 +50,21 @@ public class MeetingsHub(
         await Clients
             .Client(to)
             .SendAsync(ANSWER_RECEIVED, from, answer);
+    }
+
+    public async Task SendOfferBack(string to, RTCSessionDescription offer)
+    {
+        var from = Context.ConnectionId;
+        await Clients
+            .Client(to)
+            .SendAsync(OFFER_BACK_RECEIVED, from, offer);
+    }
+
+     public async Task SendAnswerBack(string to, RTCSessionDescription answer)
+    {
+        var from = Context.ConnectionId;
+        await Clients
+            .Client(to)
+            .SendAsync(ANSWER_BACK_RECEIVED, from, answer);
     }
 }
