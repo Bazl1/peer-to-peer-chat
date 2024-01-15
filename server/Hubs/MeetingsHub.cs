@@ -39,6 +39,7 @@ public class MeetingsHub(
     public async Task SendOffer(string to, RTCSessionDescription offer)
     {
         var from = Context.ConnectionId;
+        _logger.LogInformation($"[SendOffer] from:{from} to:{to}\noffer type: {offer.Type}\noffer sdp:\n{offer.Sdp}");
         await Clients
             .Client(to)
             .SendAsync(OFFER_RECEIVED, from, offer);
@@ -47,6 +48,7 @@ public class MeetingsHub(
      public async Task SendAnswer(string to, RTCSessionDescription answer)
     {
         var from = Context.ConnectionId;
+        _logger.LogInformation($"[SendAnswer] from:{from} to:{to}\answer type: {answer.Type}\answer sdp:\n{answer.Sdp}");
         await Clients
             .Client(to)
             .SendAsync(ANSWER_RECEIVED, from, answer);
@@ -55,6 +57,7 @@ public class MeetingsHub(
     public async Task SendOfferBack(string to, RTCSessionDescription offer)
     {
         var from = Context.ConnectionId;
+        _logger.LogInformation($"[SendOfferBack] from:{from} to:{to}\noffer type: {offer.Type}\noffer sdp:\n{offer.Sdp}");
         await Clients
             .Client(to)
             .SendAsync(OFFER_BACK_RECEIVED, from, offer);
@@ -63,6 +66,7 @@ public class MeetingsHub(
      public async Task SendAnswerBack(string to, RTCSessionDescription answer)
     {
         var from = Context.ConnectionId;
+        _logger.LogInformation($"[SendAnswerBack] from:{from} to:{to}\answer type: {answer.Type}\answer sdp:\n{answer.Sdp}");
         await Clients
             .Client(to)
             .SendAsync(ANSWER_BACK_RECEIVED, from, answer);
