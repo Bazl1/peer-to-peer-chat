@@ -13,6 +13,8 @@ public class MeetingsHub(
 {
     private const string CALL_ME = "Call:Me";
     private const string CALL_ANSWER = "Call:Answer";
+    private const string OFFER_RECEIVED = "Offer:Received";
+    private const string ANSWER_RECEIVED = "Answer:Received";
 
     public async Task Call(string to, string userName)
     {
@@ -30,5 +32,21 @@ public class MeetingsHub(
         await Clients
             .Client(to)
             .SendAsync(CALL_ANSWER, from, callAnswer);
+    }
+
+    public async Task SendOffer(string to, RTCSessionDescription offer)
+    {
+        var from = Context.ConnectionId;
+        await Clients
+            .Client(to)
+            .SendAsync(OFFER_RECEIVED, from, offer);
+    }
+
+     public async Task SendAnswer(string to, RTCSessionDescription answer)
+    {
+        var from = Context.ConnectionId;
+        await Clients
+            .Client(to)
+            .SendAsync(ANSWER_RECEIVED, from, offer);
     }
 }
