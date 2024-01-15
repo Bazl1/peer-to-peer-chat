@@ -47,6 +47,6 @@ public class MeetingsHub(
         var from = Context.ConnectionId;
         await Clients
             .Client(to)
-            .SendAsync(ANSWER_RECEIVED, from, offer);
+            .SendAsync(ANSWER_RECEIVED, from, answer);
     }
 }
