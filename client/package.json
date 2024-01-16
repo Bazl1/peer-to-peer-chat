@@ -16,7 +16,8 @@
     "react-player": "^2.14.1",
     "react-router-dom": "^6.21.2",
     "reset.css": "^2.0.2",
-    "sass": "^1.69.7"
+    "sass": "^1.69.7",
+    "socket.io-client": "^4.7.4"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
