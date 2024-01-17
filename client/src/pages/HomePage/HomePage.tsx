@@ -17,9 +17,6 @@ const HomePage = () => {
 
     const [callAccepted, setCallAccepted] = useState<boolean>(false);
 
-    const myVideoRef = useRef<HTMLVideoElement | null>(null);
-    const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
-
     const socket = useSocket();
 
     const userCall = useCallback(
@@ -125,12 +122,34 @@ const HomePage = () => {
         [socket],
     );
 
+    const handleResetCall = async () => {
+        if (PeerService && PeerService.peer) {
+            PeerService.peer.close();
+        }
+
+        setCallAccepted(false);
+        setCaller(false);
+        setCallerSignal(false);
+        setRemoteSocketId(null);
+
+        if (remoteStream) {
+            remoteStream.getTracks().forEach((track) => track.stop());
+            setRemoteStream(null);
+        }
+
+        setUserId("");
+        setName("");
+        console.log(remoteSocketId);
+
+        socket.off("call:leaved", handleResetCall);
+        await socket.emit("call:leave", { to: remoteSocketId });
+    };
+
     useEffect(() => {
         const handleTrack = (event: any) => {
             const remoteStream = event.streams;
             console.log("GOT TRACKS!!");
             setRemoteStream(remoteStream[0]);
-            remoteVideoRef && remoteVideoRef.current && (remoteVideoRef.current.srcObject = remoteStream[0]);
         };
 
         PeerService && PeerService.peer && PeerService.peer.addEventListener("track", handleTrack);
@@ -145,7 +164,6 @@ const HomePage = () => {
             video: true,
         });
         setMyStream(stream);
-        myVideoRef && myVideoRef.current && (myVideoRef.current.srcObject = stream);
     };
 
     useEffect(() => {
@@ -160,6 +178,8 @@ const HomePage = () => {
 
         socket.on("offer_back:received", handleOfferReceivedBack);
         socket.on("answer_back:received", handleAnswerReceivedBack);
+
+        socket.on("call:leaved", handleResetCall);
 
         return () => {
             socket.off("call:me", handleInfoCall);
@@ -180,9 +200,13 @@ const HomePage = () => {
                         <div className={s.hero_home__columns}>
                             <h3 className={s.hero_home__title}>Your stream</h3>
                             {myStream !== null && (
-                                <video className={s.hero_home__video} ref={myVideoRef} autoPlay muted />
+                                <ReactPlayer playing muted className={s.hero_home__video} url={myStream} />
                             )}
-                            {callAccepted && <button className={s.hero_home__btn}>Reset call</button>}
+                            {callAccepted && (
+                                <button className={s.hero_home__btn} onClick={handleResetCall}>
+                                    Reset call
+                                </button>
+                            )}
                         </div>
                         <div className={s.hero_home__columns}>
                             <div className={s.hero_home__yourid}>Your ID: {socket.id}</div>
@@ -219,8 +243,7 @@ const HomePage = () => {
                                 remoteStream !== null && (
                                     <>
                                         <h3 className={s.hero_home__title}>Your companion</h3>
-                                        <ReactPlayer className={s.hero_home__video} playing muted url={remoteStream} />
-                                        <video className={s.hero_home__video} ref={remoteVideoRef} autoPlay />
+                                        <ReactPlayer playing className={s.hero_home__video} url={remoteStream} />
                                         <button onClick={() => console.log(remoteStream)}>click</button>
                                     </>
                                 )
