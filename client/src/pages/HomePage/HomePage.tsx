@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import s from "./HomePage.module.scss";
 import ReactPlayer from "react-player";
 import PeerService from "../../services/PeerService";
@@ -12,6 +12,7 @@ const HomePage = () => {
 
     const [myStream, setMyStream] = useState<MediaStream | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+    const [NewRemoteStream, setNewRemoteStream] = useState<MediaStream | null>(null);
     const [caller, setCaller] = useState<boolean>(false);
     const [callerSignal, setCallerSignal] = useState<boolean>(false);
 
@@ -123,10 +124,6 @@ const HomePage = () => {
     );
 
     const handleResetCall = async () => {
-        if (PeerService && PeerService.peer) {
-            PeerService.peer.close();
-        }
-
         setCallAccepted(false);
         setCaller(false);
         setCallerSignal(false);
@@ -139,15 +136,14 @@ const HomePage = () => {
 
         setUserId("");
         setName("");
-        console.log(remoteSocketId);
 
         socket.off("call:leaved", handleResetCall);
         await socket.emit("call:leave", { to: remoteSocketId });
     };
 
     useEffect(() => {
-        const handleTrack = (event: any) => {
-            const remoteStream = event.streams;
+        const handleTrack = async (event: any) => {
+            const remoteStream = await event.streams;
             console.log("GOT TRACKS!!");
             setRemoteStream(remoteStream[0]);
         };
@@ -243,8 +239,10 @@ const HomePage = () => {
                                 remoteStream !== null && (
                                     <>
                                         <h3 className={s.hero_home__title}>Your companion</h3>
-                                        <ReactPlayer playing className={s.hero_home__video} url={remoteStream} />
-                                        <button onClick={() => console.log(remoteStream)}>click</button>
+                                        {NewRemoteStream !== null && (
+                                            <ReactPlayer playing className={s.hero_home__video} url={NewRemoteStream} />
+                                        )}
+                                        <button onClick={() => setNewRemoteStream(remoteStream)}>click</button>
                                     </>
                                 )
                             )}
