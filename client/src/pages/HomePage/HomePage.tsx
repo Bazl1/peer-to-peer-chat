@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import s from "./HomePage.module.scss";
 import ReactPlayer from "react-player";
 import PeerService from "../../services/PeerService";
@@ -17,97 +17,140 @@ const HomePage = () => {
 
     const [callAccepted, setCallAccepted] = useState<boolean>(false);
 
+    const myVideoRef = useRef<HTMLVideoElement | null>(null);
+    const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+
     const socket = useSocket();
 
-    const sendStreams = () => {
-        if (myStream && PeerService && PeerService.peer) {
-            for (const track of myStream.getTracks()) {
-                PeerService.peer.addTrack(track, myStream);
+    const userCall = useCallback(
+        async (e: any) => {
+            e.preventDefault();
+
+            await socket.emit("call", { to: userId, userName: name });
+            setCaller(true);
+        },
+        [socket, userId],
+    );
+
+    const handleInfoCall = useCallback(
+        (FromId: string, FromName: string) => {
+            setRemoteSocketId(FromId);
+            setFromName(FromName);
+            setCallerSignal(true);
+        },
+        [socket],
+    );
+
+    const handleCallTo = useCallback(
+        async (value: boolean) => {
+            await socket.emit("call:answer", { to: remoteSocketId, answer: value });
+            if (value) {
+                const offer = await PeerService.getOffer();
+                await socket.emit("send:offer", { to: remoteSocketId, offer });
+                setCallAccepted(true);
             }
-        }
-    };
+            setCallerSignal(false);
+        },
+        [socket, remoteSocketId],
+    );
 
-    const userCall = async (e: any) => {
-        e.preventDefault();
-        console.log(socket);
+    const handleCallMe = useCallback(
+        async (value: boolean) => {
+            await socket.emit("call:answer", { to: userId, answer: value });
+            setCaller(false);
+            setUserId("");
+            setName("");
+        },
+        [socket, userId],
+    );
 
-        await socket.emit("call", userId, name);
-        setCaller(true);
-    };
+    const handleCallAnswer = useCallback(
+        async (FromId: string, value: boolean) => {
+            setCaller(false);
+            setCallerSignal(false);
+            setUserId("");
+            setName("");
+            if (value) {
+                setRemoteSocketId(FromId);
+                setCallAccepted(true);
+            }
+        },
+        [socket],
+    );
 
-    const handleInfoCall = (FromId: string, FromName: string) => {
-        setRemoteSocketId(FromId);
-        setFromName(FromName);
-        setCallerSignal(true);
-    };
+    const handleOfferReceived = useCallback(
+        async (FromId: string, offer: RTCSessionDescriptionInit) => {
+            const ans = await PeerService.getAnswer(offer);
+            await socket.emit("send:answer", { to: FromId, answer: ans });
 
-    const handleCallTo = async (value: boolean) => {
-        console.log(socket);
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            if (stream && PeerService && PeerService.peer) {
+                stream.getTracks().forEach((track) => {
+                    PeerService.peer && PeerService.peer.addTrack(track, stream);
+                });
+            }
+        },
+        [socket],
+    );
 
-        await socket.emit("call:answer", remoteSocketId, value);
-        setCallerSignal(false);
-    };
+    const handleAnswerReceived = useCallback(
+        async (FromId: string, ans: RTCSessionDescriptionInit) => {
+            PeerService.setLocalDescription(ans);
 
-    const handleCallMe = async (value: boolean) => {
-        console.log(socket);
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            if (stream && PeerService && PeerService.peer) {
+                stream.getTracks().forEach((track) => {
+                    PeerService.peer && PeerService.peer.addTrack(track, stream);
+                });
+            }
 
-        await socket.emit("call:answer", userId, value);
-        setCaller(false);
-        setUserId("");
-        setName("");
-    };
-
-    const handleCallAnswer = async (FromId: string, value: boolean) => {
-        console.log("handleCallAnswer start");
-        setCaller(false);
-        setCallerSignal(false);
-        setUserId("");
-        setName("");
-        if (value) {
-            console.log(socket);
             const offer = await PeerService.getOffer();
-            await socket.emit("send:offer", FromId, offer);
-            setCallAccepted(true);
-            console.log("SendOffer end");
-        }
+            await socket.emit("send_back:offer", { to: FromId, offer });
+        },
+        [socket],
+    );
 
-        console.log("handleCallAnswer end");
+    const handleOfferReceivedBack = useCallback(
+        async (FromId: string, offer: RTCSessionDescriptionInit) => {
+            const ans = await PeerService.getAnswer(offer);
+            await socket.emit("send_back:answer", { to: FromId, answer: ans });
+        },
+        [socket],
+    );
+
+    const handleAnswerReceivedBack = useCallback(
+        async (ans: RTCSessionDescriptionInit) => {
+            PeerService.setLocalDescription(ans);
+        },
+        [socket],
+    );
+
+    useEffect(() => {
+        const handleTrack = (event: any) => {
+            const remoteStream = event.streams;
+            console.log("GOT TRACKS!!");
+            setRemoteStream(remoteStream[0]);
+            remoteVideoRef && remoteVideoRef.current && (remoteVideoRef.current.srcObject = remoteStream[0]);
+        };
+
+        PeerService && PeerService.peer && PeerService.peer.addEventListener("track", handleTrack);
+        return () => {
+            PeerService && PeerService.peer && PeerService.peer.removeEventListener("track", handleTrack);
+        };
+    }, [socket]);
+
+    const initSteam = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: true,
+        });
+        setMyStream(stream);
+        myVideoRef && myVideoRef.current && (myVideoRef.current.srcObject = stream);
     };
 
-    const handleOfferReceived = async (FromId: string, offer: RTCSessionDescriptionInit) => {
-        console.log("handleOfferReceived start");
-        const ans = await PeerService.getAnswer(offer);
-        await socket.emit("send:answer", FromId, ans);
-        console.log("handleOfferReceived end");
-    };
-
-    const handleAnswerReceived = async (FromId: string, ans: RTCSessionDescriptionInit) => {
-        console.log("handleAnswerReceived start");
-        PeerService.setLocalDescription(ans);
-        sendStreams();
-        console.log("handleAnswerReceived end");
-    };
-
-    const handleNegoNeeded = async () => {
-        console.log("handleNegoNeeded start");
-        const offer = await PeerService.getOffer();
-        await socket.emit("send_back:offer", remoteSocketId, offer);
-        console.log("handleNegoNeeded end");
-    };
-
-    const handleOfferReceivedBack = async (FromId: string, offer: RTCSessionDescriptionInit) => {
-        console.log("handleOfferReceivedBack start");
-        const ans = await PeerService.getAnswer(offer);
-        await socket.emit("send_back:answer", FromId, ans);
-        console.log("handleOfferReceivedBack end");
-    };
-
-    const handleAnswerReceivedBack = async (FromId: string, ans: RTCSessionDescriptionInit) => {
-        console.log("handleAnswerReceivedBack start");
-        PeerService.setLocalDescription(ans);
-        sendStreams();
-        console.log("handleAnswerReceivedBack end");
-    };
+    useEffect(() => {
+        initSteam();
+    }, [socket]);
 
     useEffect(() => {
         socket.on("call:me", handleInfoCall);
@@ -127,30 +170,7 @@ const HomePage = () => {
             socket.off("offer_back:received", handleOfferReceivedBack);
             socket.off("answer_back:received", handleAnswerReceivedBack);
         };
-    }, []);
-
-    useEffect(() => {
-        PeerService &&
-            PeerService.peer &&
-            PeerService.peer.addEventListener("track", async (ev) => {
-                const remoteStream = ev.streams;
-                console.log("GOT TRACKS!!");
-                setRemoteStream(remoteStream[0]);
-            });
-    }, []);
-
-    useEffect(() => {
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
-            setMyStream(stream);
-        });
-
-        PeerService && PeerService.peer && PeerService.peer.addEventListener("negotiationneeded", handleNegoNeeded);
-        return () => {
-            PeerService &&
-                PeerService.peer &&
-                PeerService.peer.removeEventListener("negotiationneeded", handleNegoNeeded);
-        };
-    }, []);
+    }, [socket]);
 
     return (
         <main className="main">
@@ -160,14 +180,12 @@ const HomePage = () => {
                         <div className={s.hero_home__columns}>
                             <h3 className={s.hero_home__title}>Your stream</h3>
                             {myStream !== null && (
-                                <ReactPlayer className={s.hero_home__video} playing muted url={myStream} />
+                                <video className={s.hero_home__video} ref={myVideoRef} autoPlay muted />
                             )}
                             {callAccepted && <button className={s.hero_home__btn}>Reset call</button>}
                         </div>
                         <div className={s.hero_home__columns}>
-                            <div className={s.hero_home__yourid}>
-                                Your ID: <span>{socket}</span>
-                            </div>
+                            <div className={s.hero_home__yourid}>Your ID: {socket.id}</div>
                             {!callAccepted ? (
                                 caller ? (
                                     <div className={s.hero_home__caller_box}>
@@ -202,6 +220,8 @@ const HomePage = () => {
                                     <>
                                         <h3 className={s.hero_home__title}>Your companion</h3>
                                         <ReactPlayer className={s.hero_home__video} playing muted url={remoteStream} />
+                                        <video className={s.hero_home__video} ref={remoteVideoRef} autoPlay />
+                                        <button onClick={() => console.log(remoteStream)}>click</button>
                                     </>
                                 )
                             )}

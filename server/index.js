@@ -9,6 +9,7 @@ io.on("connection", (socket) => {
 
     socket.on("call", ({ to, userName }) => {
         const from = socket.id;
+        console.log(from)
         io.to(to).emit("call:me", from, userName);
     });
 
@@ -31,10 +32,10 @@ io.on("connection", (socket) => {
     socket.on("send_back:offer", ({ to, offer }) => {
         const from = socket.id;
         io.to(to).emit("offer_back:received", from, offer);
+        console.log("offer_back:received",from,to)
     });
 
     socket.on("send_back:answer", ({ to, answer }) => {
-        const from = socket.id;
-        io.to(to).emit("answer_back:received", from, answer);
+        io.to(to).emit("answer_back:received", answer);
     });
 });
