@@ -17,6 +17,11 @@ io.on("connection", (socket) => {
         io.to(to).emit("call:result", from, answer);
     });
 
+    socket.on("call:leave", ({ to }) => {
+        const from = socket.id;
+        io.to(to).emit("call:leaved", from );
+    });
+
 
     socket.on("send:offer", ({ to, offer }) => {
         const from = socket.id;
